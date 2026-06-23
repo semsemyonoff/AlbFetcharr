@@ -65,20 +65,83 @@ into the backend image, which Flask/gunicorn serves alongside the API on port
 
 ---
 
-## For operators (self-hosting)
+## Self-hosting
 
 You only need this `README`, `docker-compose.yml`, and `.env.example` — not the
 submodules.
 
 ```bash
-cp .env.example .env                       # set tokens, Lidarr URL/key, paths, port
+cp .env.example .env                       # then configure it (see below)
 mkdir -p config downloads library          # persistent state, download staging, library
 docker compose up -d
 ```
 
-Open `http://localhost:8080` (or the `ALBFETCHARR_HTTP_PORT` you set), fill in
-the required tokens (or set them in `.env`), then load your wanted list and start
-fetching.
+Open `http://localhost:8080` (or the `ALBFETCHARR_HTTP_PORT` you set), then load
+your wanted list and start fetching.
+
+## Configuration
+
+Everything is set in `.env` (copied from `.env.example`). At minimum AlbFetcharr
+needs to reach Lidarr and to have at least one usable source.
+
+### 1. Lidarr
+
+```env
+LIDARR_URL=http://lidarr:8686
+LIDARR_API_KEY=<your key>
+```
+
+Get the key in Lidarr under **Settings → General → API Key**. Make sure Lidarr has
+wanted albums (status *Missing*). No Download Client setup is needed — AlbFetcharr
+imports via Lidarr's ManualImport API. To also wire imports and cover-art copy,
+set `ALBFETCHARR_LIDARR_IMPORT_PATH` and `ALBFETCHARR_LIBRARY_MAP` (see
+[Directories and library mapping](#directories-and-library-mapping)).
+
+### 2. Sources
+
+At least one source must be usable:
+
+```env
+YANDEX_MUSIC_TOKEN=<your token>            # the most accurate source
+YANDEX_MUSIC_QUALITY=2                     # 0 AAC 64, 1 AAC 192, 2 FLAC
+```
+
+Get a Yandex Music token following
+[these instructions](https://yandex-music.readthedocs.io/en/main/token.html).
+YouTube Music, SoundCloud, and Bandcamp work without credentials — see
+[Sources](#sources) for what each does and for the optional YouTube cookies /
+search-OAuth setup.
+
+### 3. Secret key (recommended)
+
+AlbFetcharr can keep its settings — including secrets like the Yandex token and
+Lidarr key — in a persistent SQLite store (`/config/albfetcharr.db`), so you can
+manage them from the in-app **Settings** screen instead of `.env`. To store
+secrets there, the app encrypts them at rest with a Fernet key. Without the key
+the app still runs **env-only** (it reads secrets from `.env`; writing secrets to
+the DB is refused), so this is optional but recommended if you want to configure
+from the UI.
+
+Generate a key:
+
+```bash
+python -c "import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
+# or, without Python:
+openssl rand -base64 32 | tr '+/' '-_'
+```
+
+Set it in `.env`:
+
+```env
+ALBFETCHARR_SECRET_KEY=<the generated key>
+```
+
+> ⚠️ **Back up this key.** If you lose it, secrets already encrypted in the DB
+> cannot be recovered — you'd have to re-enter them.
+
+After `docker compose up -d`, open the UI and either keep everything in `.env`, or
+fill the remaining settings (including secrets) from the **Settings** screen. For
+the complete list of tunables, see [Environment variables](#environment-variables).
 
 ### Running alongside Lidarr
 
@@ -163,13 +226,6 @@ ALBFETCHARR_LIBRARY_MAP=/data/music=/libraries/music,/data/soundtracks=/librarie
 
 On startup AlbFetcharr checks Lidarr's root folders via the API and warns if any
 of them has no mapping entry.
-
-### Lidarr setup
-
-1. Get the Lidarr API key: **Settings → General → API Key**.
-2. Make sure Lidarr has wanted albums (status *Missing*).
-3. AlbFetcharr imports via the ManualImport API — no Lidarr Download Client
-   configuration is required.
 
 ### Sources
 
@@ -330,70 +386,6 @@ If you ran the old `semsemyonoff/yamdarr` image:
 
 Unchanged: `LIDARR_URL`, `LIDARR_API_KEY`, `YANDEX_MUSIC_TOKEN`,
 `YANDEX_MUSIC_QUALITY`, `DOWNLOAD_DIR`, `UID`, `GID`, `UMASK`.
-
----
-
-## For maintainers (cutting a release)
-
-A release is **reproducible**: one (backend, frontend) commit pair → one product
-version → one multi-arch image, built from a self-contained `Dockerfile` (stage 1
-builds the SPA, stage 2 is the backend runtime with `deno` for yt-dlp's YouTube
-solver).
-
-### Where the image is published
-
-The same multi-arch image is pushed to both public registries by CI. Operators
-can pull from whichever they like via `ALBFETCHARR_IMAGE` in `.env`:
-
-| Registry   | Image ref                          | Audience          |
-|------------|------------------------------------|-------------------|
-| Docker Hub | `semsemyonoff/albfetcharr`         | public (default)  |
-| GHCR       | `ghcr.io/semsemyonoff/albfetcharr` | public            |
-
-### Cutting a release
-
-A release is driven by a `vX.Y.Z` git tag. Before tagging, prepare the release on
-the default branch:
-
-1. repin `backend`/`frontend` to the commits/tags you want to ship;
-2. bump `VERSION`;
-3. promote the `CHANGELOG.md` `[Unreleased]` section to `[X.Y.Z] - <date>` — that
-   text becomes the release notes;
-4. commit `release: X.Y.Z`, then tag `vX.Y.Z` and push the tag.
-
-Pushing the tag triggers `.github/workflows/release.yml`, which builds the
-multi-arch image from the pinned submodules, pushes it to Docker Hub + GHCR, and
-publishes a GitHub Release from the matching CHANGELOG section.
-
-### One-time setup
-
-- **GitHub secrets:** `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` (GHCR uses the
-  built-in `GITHUB_TOKEN`, which needs `packages: write` — already set in the
-  workflow).
-
-### Local fallback
-
-CI is the primary path, but the same build runs locally with Docker only:
-
-```bash
-git submodule update --init --recursive
-git -C backend checkout <tag> && git -C frontend checkout <tag> && git add backend frontend
-make release VERSION=1.0.0           # builds + pushes (override targets via IMAGES=...)
-```
-
-Smoke-test a build without pushing:
-
-```bash
-make release-local VERSION=1.0.0
-ALBFETCHARR_TAG=1.0.0 docker compose up -d
-```
-
-### Relationship to the DWE dev workspace
-
-The `AlbFetcharr` DWE workspace remains the **development** environment (live
-bind-mounts, Vite HMR, separate backend/frontend/lidarr dev containers). This
-repo is strictly about producing and running the **release** artifact. The two
-are independent; nothing here changes the dev workflow.
 
 ---
 
