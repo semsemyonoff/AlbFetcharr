@@ -1,0 +1,18 @@
+# Keep the build context lean — the Dockerfile pulls only what it needs from the
+# backend/ and frontend/ submodules.
+**/.git
+**/node_modules
+**/dist
+**/__pycache__
+**/*.pyc
+**/.venv
+**/.pytest_cache
+**/.ruff_cache
+**/*.egg-info
+backend/tests
+
+# Operator-local runtime dirs / secrets (never relevant to the image).
+.env
+/config/
+/downloads/
+/library/

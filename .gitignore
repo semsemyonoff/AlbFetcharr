@@ -1,0 +1,9 @@
+# Local operator config (never commit secrets / host paths).
+.env
+
+# Local bind-mount dirs if created next to the compose file.
+/config/
+/downloads/
+/library/
+
+.DS_Store

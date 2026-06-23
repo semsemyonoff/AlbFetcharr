@@ -1,0 +1,56 @@
+# Production deployment for AlbFetcharr — the single published image
+# (semsemyonoff/albfetcharr) that bundles the Flask API and the pre-built SPA.
+#
+# This is the RUNTIME stack operators use to self-host. It pulls a tagged image
+# from the registry; it does NOT build anything (see the Makefile `release`
+# target for building/publishing from the pinned submodules).
+#
+# AlbFetcharr works alongside Lidarr: it reads your wanted list from the Lidarr
+# API, fetches the albums from the configured sources, and imports them back via
+# Lidarr's ManualImport. Run Lidarr yourself (this file ships only AlbFetcharr);
+# point LIDARR_URL/LIDARR_API_KEY at it and share the downloads/library dirs. See
+# the README for the full wiring and the ALBFETCHARR_LIBRARY_MAP explanation.
+#
+# Quick start:
+#   cp .env.example .env   # then edit tokens / paths / port / tag
+#   docker compose up -d
+#   open http://localhost:${ALBFETCHARR_HTTP_PORT}
+
+services:
+  albfetcharr:
+    image: "${ALBFETCHARR_IMAGE:-semsemyonoff/albfetcharr}:${ALBFETCHARR_TAG:-latest}"
+    container_name: albfetcharr
+    restart: unless-stopped
+    # All app configuration (tokens, Lidarr URL/key, source toggles, download
+    # tweaks) comes from .env — see .env.example for the full set. Marked
+    # optional so `docker compose` still parses before you create .env; the
+    # quick start copies it first, so in normal use it is always present.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Container-internal, fixed (do NOT move to .env): where the backend writes
+      # fetched albums inside the container — the host downloads dir is mounted here.
+      DOWNLOAD_DIR: /downloads
+      TZ: "${TZ:-UTC}"
+    ports:
+      # Container always serves on 5000; publish it on the host port you choose.
+      - "${ALBFETCHARR_HTTP_PORT:-8080}:5000"
+    volumes:
+      # Persistent app state: settings DB (albfetcharr.db) and optional
+      # ytmusic_oauth.json / cookies.txt live here. Keep it on a real volume.
+      - "${ALBFETCHARR_CONFIG_DIR:-./config}:/config"
+      # Download staging dir — AlbFetcharr writes fetched albums here, then hands
+      # them to Lidarr's ManualImport (ALBFETCHARR_LIDARR_IMPORT_PATH is the same
+      # location as Lidarr sees it). Share this dir with the Lidarr container.
+      - "${ALBFETCHARR_DOWNLOADS_DIR:-./downloads}:/downloads"
+      # Lidarr root folder(s), mounted so AlbFetcharr can copy cover art next to
+      # the imported album. Single-library default; for multiple libraries add
+      # more mounts and entries to ALBFETCHARR_LIBRARY_MAP (see README).
+      - "${ALBFETCHARR_LIBRARY_DIR:-./library}:/libraries/music"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:5000/').status < 500 else 1)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
