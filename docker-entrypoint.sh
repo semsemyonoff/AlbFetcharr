@@ -45,11 +45,16 @@ case "$1" in
         exec ${EXEC_PREFIX} python -m albfetcharr download "$@"
         ;;
     *)
+        # --no-control-socket: gunicorn 26's control interface defaults to a
+        # socket under $HOME/.gunicorn; we run as a non-root UID with no writable
+        # HOME, so it can't create it (logs "Control server error: Permission
+        # denied: '/.gunicorn'"). We don't use the control interface — disable it.
         exec ${EXEC_PREFIX} gunicorn "albfetcharr.web.app:create_app()" \
             --bind "0.0.0.0:${ALBFETCHARR_PORT:-5000}" \
             --workers 1 \
             --threads 4 \
             --timeout 300 \
+            --no-control-socket \
             --access-logfile - \
             --error-logfile -
         ;;

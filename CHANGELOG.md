@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 <!-- Write notes for the next release here. "Cut release" promotes this
      section to ## [X.Y.Z] - <date> and uses it as the release body. -->
 
+### Fixed
+- Disable gunicorn 26's control socket (`--no-control-socket`). The image runs as
+  a non-root UID with no writable `HOME`, so gunicorn's new control interface
+  failed to create its socket and logged `Control server error: [Errno 13]
+  Permission denied: '/.gunicorn'` on every startup. We don't use the control
+  interface, so it's turned off — the spurious error is gone.
+
 ## [0.1.0] - 2026-06-23
 
 Initial release of **AlbFetcharr** — a web service that fetches Lidarr's
