@@ -1,6 +1,6 @@
 # AlbFetcharr
 
-![logo](assets/logo.svg)
+<img src="assets/logo.svg" alt="AlbFetcharr logo" width="120" height="114">
 
 A web service that fetches [Lidarr](https://lidarr.audio/)'s **wanted** albums
 from [Yandex Music](https://music.yandex.ru/),
