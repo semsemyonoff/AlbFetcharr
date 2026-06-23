@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 <!-- Write notes for the next release here. "Cut release" promotes this
      section to ## [X.Y.Z] - <date> and uses it as the release body. -->
 
+## [0.1.0] - 2026-06-23
+
 Initial release of **AlbFetcharr** — a web service that fetches Lidarr's
 wanted albums from Yandex Music, YouTube Music, SoundCloud, and Bandcamp and
 imports them back into Lidarr.
