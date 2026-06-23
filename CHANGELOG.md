@@ -10,9 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-<!-- Write notes for the next release here. "Cut release" promotes this whole
-     section to ## [X.Y.Z] - <date> and uses it as the GitHub/Forgejo release
-     body, then re-seeds an empty Unreleased. -->
+<!-- Write notes for the next release here. "Cut release" promotes this
+     section to ## [X.Y.Z] - <date> and uses it as the release body. -->
+
+## [0.1.0] - 2026-06-23
 
 Initial release of **AlbFetcharr** — a web service that fetches Lidarr's
 wanted albums from Yandex Music, YouTube Music, SoundCloud, and Bandcamp and
@@ -39,3 +40,4 @@ pinned `backend` and `frontend` submodules, published to Docker Hub and GHCR.
   entirely from this repo, with no dependency on the dev stack.
 - Release CI: the "Cut release" button builds the multi-arch image and publishes
   it to Docker Hub and GHCR (and to git.horn on internal infra).
+
