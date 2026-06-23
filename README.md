@@ -342,54 +342,34 @@ solver).
 
 ### Where the image is published
 
-The same image is pushed to all registries by CI. Operators can pull from
-whichever they like via `ALBFETCHARR_IMAGE` in `.env`:
+The same multi-arch image is pushed to both public registries by CI. Operators
+can pull from whichever they like via `ALBFETCHARR_IMAGE` in `.env`:
 
-| Registry   | Image ref                          | Built by        | Audience          |
-|------------|------------------------------------|-----------------|-------------------|
-| Docker Hub | `semsemyonoff/albfetcharr`         | GitHub Actions  | public (default)  |
-| GHCR       | `ghcr.io/semsemyonoff/albfetcharr` | GitHub Actions  | public            |
-| git.horn   | `git.horn/albfetcharr/app`         | Forgejo Actions | internal infra    |
+| Registry   | Image ref                          | Audience          |
+|------------|------------------------------------|-------------------|
+| Docker Hub | `semsemyonoff/albfetcharr`         | public (default)  |
+| GHCR       | `ghcr.io/semsemyonoff/albfetcharr` | public            |
 
-The Forgejo repo is the source of truth and push-mirrors to GitHub.
+### Cutting a release
 
-### Cutting a release (the one button)
+A release is driven by a `vX.Y.Z` git tag. Before tagging, prepare the release on
+the default branch:
 
-Run **Forgejo → Actions → Cut release → Run workflow**, pick a bump
-(`patch`/`minor`/`major`). The `release-cut` workflow then:
+1. repin `backend`/`frontend` to the commits/tags you want to ship;
+2. bump `VERSION`;
+3. promote the `CHANGELOG.md` `[Unreleased]` section to `[X.Y.Z] - <date>` — that
+   text becomes the release notes;
+4. commit `release: X.Y.Z`, then tag `vX.Y.Z` and push the tag.
 
-1. repins `backend`/`frontend` to their latest semver tag (or a ref you pass);
-2. bumps `VERSION`;
-3. promotes the `CHANGELOG.md` `[Unreleased]` section to `[X.Y.Z] - <date>`
-   (write your release notes there before cutting — that text is the release body);
-4. commits `release: X.Y.Z`, tags `vX.Y.Z`, and pushes.
-
-The tag fans out to the build pipelines: `.forgejo/workflows/release.yml` builds
-and pushes the image on internal infra (git.horn), and — via the mirror —
-`.github/workflows/release.yml` pushes Docker Hub + GHCR. It must be triggered on
-Forgejo because the mirror is one-way (Forgejo → GitHub), so the tag has to
-originate there.
-
-A **Release** page is created on each platform from the same CHANGELOG section
-(notes only, no attached assets): Forgejo via its API in `release-cut`, GitHub
-via `action-gh-release` in the public build. Release objects aren't mirrored, so
-each side publishes its own — that's expected.
+Pushing the tag triggers `.github/workflows/release.yml`, which builds the
+multi-arch image from the pinned submodules, pushes it to Docker Hub + GHCR, and
+publishes a GitHub Release from the matching CHANGELOG section.
 
 ### One-time setup
 
-- **Push mirror** (Forgejo repo → Settings → Mirror → Push): mirror this repo to
-  `github.com/semsemyonoff/AlbFetcharr-deploy` (or wherever the public copy lives)
-  with a GitHub PAT, so tags/commits propagate and trigger the public build.
 - **GitHub secrets:** `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` (GHCR uses the
-  built-in `GITHUB_TOKEN`).
-- **Forgejo Actions secrets** (names can't start with `FORGEJO_`/`GITEA_`/`GITHUB_`):
-  `HORN_REGISTRY_USER` + `HORN_REGISTRY_TOKEN` (a token with `write:package`) for
-  the registry push, and `RELEASE_TOKEN` (a PAT with repo write) used by
-  `release-cut` to push the tag. It must be a PAT — a tag pushed by the automatic
-  Actions token would not trigger the build jobs.
-- **Runner CA:** add the internal registry host to `FORGEJO_RUNNER_DOCKER_CA_HOSTS`
-  in the git stack's `.env` and redeploy the runner, so its Docker daemon trusts
-  the registry's CA when pushing (otherwise the push fails with x509).
+  built-in `GITHUB_TOKEN`, which needs `packages: write` — already set in the
+  workflow).
 
 ### Local fallback
 
